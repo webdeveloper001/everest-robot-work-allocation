@@ -8,19 +8,34 @@ efficiency-metrics feature described in `Robot work allocation system_EE.pdf`.
 
 No third-party dependencies are required — the app and its tests use only
 the Python standard library (3.9+). The package isn't installed, so point
-`PYTHONPATH` at `src/` (or run from the repo root, where `tests/__init__.py`
-already does this for the test suite automatically):
+`PYTHONPATH` at `src/` (the test suite doesn't need this --
+`tests/__init__.py` inserts the path automatically).
+
+**macOS / Linux (bash/zsh):**
 
 ```bash
-# Run the interactive CLI
-PYTHONPATH=src python -m robot_allocation
-
-# Run the full test suite (106 tests) -- no PYTHONPATH needed here
-python -m unittest discover -s tests -t .
-
-# If pytest happens to be installed, it will run the same suite:
-python -m pytest
+PYTHONPATH=src python3 -m robot_allocation
+python3 -m unittest discover -s tests -t .   # run the full test suite (106 tests)
 ```
+
+**Windows (PowerShell):**
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m robot_allocation
+python -m unittest discover -s tests -t .    # run the full test suite (106 tests)
+```
+
+**Windows (cmd.exe):**
+
+```cmd
+set PYTHONPATH=src
+python -m robot_allocation
+python -m unittest discover -s tests -t .
+```
+
+If pytest happens to be installed, `python -m pytest` (or `pytest`) will
+discover and run the same suite.
 
 ## Requirements coverage
 
