@@ -1,0 +1,9 @@
+# No runtime dependencies -- the application uses only the Python standard
+# library. Tests are written with unittest (also stdlib) so the suite runs
+# with zero installation:
+#
+#   python -m unittest discover -s tests
+#
+# pytest is optional: if it's installed in your environment, it will
+# auto-discover and run the same unittest.TestCase-based tests.
+pytest>=7.4; extra == "dev"
