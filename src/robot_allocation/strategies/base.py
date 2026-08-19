@@ -1,4 +1,6 @@
 """Common interface for single-client, single-pool allocation strategies."""
+# ABC + abstractmethod let us define a formal interface: any subclass that
+# doesn't implement `allocate` cannot be instantiated.
 from abc import ABC, abstractmethod
 
 from ..domain.allocation_result import AllocationResult
@@ -14,4 +16,8 @@ class AllocationStrategy(ABC):
 
     @abstractmethod
     def allocate(self, inventory: RobotInventory, requested_hours: int) -> AllocationResult:
+        # No implementation here -- subclasses (CategoryDistributionStrategy,
+        # CostOptimizedStrategy) must provide their own `allocate` method.
+        # `inventory` is the pool of robots available; `requested_hours` is
+        # how many hours of work the client needs covered.
         ...
