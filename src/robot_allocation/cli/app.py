@@ -20,6 +20,7 @@ from ..strategies.standby_activation_strategy import StandbyActivationStrategy
 from . import display
 from .input_parser import parse_client_hours_list, parse_robot_count, parse_work_hours
 
+# The main menu text shown every time the loop restarts (see `run` below).
 MENU_TEXT = """Robot Work Allocation System
 1. Level 1 - Robot Category Distribution
 2. Level 2 - Cost Optimised Allocation
@@ -33,11 +34,17 @@ MENU_TEXT = """Robot Work Allocation System
 class RobotAllocationCLI:
     def __init__(
         self,
+        # Defaults to the real built-in `input` function, but tests can
+        # inject a fake that returns scripted responses instead.
         input_fn: Callable[[str], str] = input,
+        # Defaults to the real built-in `print` function, but tests can
+        # inject a fake that records output for assertions instead.
         output_fn: Callable[[str], None] = print,
     ):
         self._input = input_fn
         self._output = output_fn
+        # One stateless strategy/service instance per level, created once
+        # and reused for the lifetime of this CLI session.
         self._level1 = CategoryDistributionStrategy()
         self._level2 = CostOptimizedStrategy()
         self._level3 = StandbyActivationStrategy()
@@ -48,6 +55,8 @@ class RobotAllocationCLI:
     # -- top-level loop --------------------------------------------------
 
     def run(self) -> None:
+        # Main interactive loop: show the menu, read a choice, dispatch to
+        # the matching handler, and repeat until the user chooses to exit.
         while True:
             self._output(MENU_TEXT)
             choice = self._input("Choose an option: ").strip()
@@ -63,17 +72,26 @@ class RobotAllocationCLI:
                 self._run_comparison()
             elif choice == "6":
                 self._output("Goodbye!")
-                return
+                return  # exits the loop (and the method), ending the session
             else:
+                # Anything other than "1".."6" is treated as invalid input;
+                # loop back around and show the menu again.
                 self._output("Invalid option. Please choose 1-6.")
 
     # -- shared prompts ----------------------------------------------------
 
     def _prompt_robot_counts(self) -> RobotInventory:
+        # Asks the user, one robot type at a time (in canonical display
+        # order), how many robots of that type are available, and builds
+        # a validated RobotInventory from the answers.
         self._output("Enter number of robots available:")
         counts = {}
         for rt in ROBOT_TYPES_IN_DISPLAY_ORDER:
             raw = self._input(f"{rt.label}: ")
+            # parse_robot_count raises InvalidRobotCountError (a subclass of
+            # AllocationError) if the input isn't a clean non-negative
+            # integer -- this propagates up to the calling _run_levelN
+            # method's try/except.
             counts[rt] = parse_robot_count(raw, rt.label)
         return RobotInventory(counts)
 
@@ -90,6 +108,9 @@ class RobotAllocationCLI:
             result = self._level1.allocate(inventory, hours)
             self._output(display.format_level1_result(result))
         except AllocationError as error:
+            # Any validation or allocation failure (from parsing input or
+            # from the strategy itself) is caught here and shown to the
+            # user as plain text, then control returns to the main menu.
             self._output(str(error))
 
     def _run_level2(self) -> None:
@@ -103,6 +124,9 @@ class RobotAllocationCLI:
 
     def _run_level3(self) -> None:
         try:
+            # Level 3 needs two separate inventories: the active fleet
+            # (always fully deployed) and the standby fleet (only tapped
+            # if active capacity falls short).
             self._output("-- Active robots --")
             active = self._prompt_robot_counts()
             self._output("-- Standby robots --")
@@ -119,6 +143,8 @@ class RobotAllocationCLI:
             active = self._prompt_robot_counts()
             self._output("-- Standby robots --")
             standby = self._prompt_robot_counts()
+            # Level 4 supports multiple clients in one prompt: a single
+            # number, or several separated by commas/whitespace.
             raw_hours = self._input(
                 "Client working hours (single value, or comma/space separated for multiple clients): "
             )
@@ -126,9 +152,11 @@ class RobotAllocationCLI:
             result = self._level4.allocate_many(active, standby, hours_list)
             self._output(display.format_level4_result(result))
 
+            # Bonus feature: also report utilization efficiency across the
+            # combined (active + standby) pool, based on what was actually used.
             combined_inventory = active.combined_with(standby)
             report = self._metrics.compute(combined_inventory, result.combined_allocation)
-            self._output("")
+            self._output("")  # blank line separating the allocation report from the metrics report
             self._output(display.format_utilization_report(report))
         except AllocationError as error:
             self._output(str(error))
@@ -144,4 +172,7 @@ class RobotAllocationCLI:
 
 
 def main(argv: List[str] = None) -> None:
+    # `argv` is accepted for API symmetry with typical CLI entry points
+    # (and to keep the signature future-proof for argument parsing) but is
+    # currently unused -- the app is purely interactive/prompt-driven.
     RobotAllocationCLI().run()
